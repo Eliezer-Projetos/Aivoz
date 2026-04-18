@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>AIVOZ</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:#0a0a0f;color:#e8e8f0;font-family:system-ui,sans-serif;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 50% at 20% 10%,rgba(0,229,255,.06) 0%,transparent 60%),radial-gradient(ellipse 60% 40% at 80% 90%,rgba(124,58,237,.07) 0%,transparent 60%);pointer-events:none}
+
+#app{position:relative;z-index:1;display:flex;flex-direction:column;height:100dvh;padding:20px 16px 16px;gap:12px}
+
+header{display:flex;justify-content:space-between;align-items:center}
+.logo{font-size:20px;font-weight:800;color:#00e5ff}.logo span{color:#e8e8f0}
+#pill{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:#12121a;border:1px solid #55557044;color:#555570;font-size:11px;font-family:monospace;transition:all .3s}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:blink 1.5s infinite}
+
+#chat{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+#chat::-webkit-scrollbar{width:3px}#chat::-webkit-scrollbar-thumb{background:#1e1e2e;border-radius:2px}
+
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#555570;text-align:center;padding-top:60px;flex:1}
+.empty-icon{font-size:44px}
+.empty p{font-size:13px;font-family:monospace;line-height:1.8}
+
+.msg{display:flex;flex-direction:column;gap:3px;animation:slideIn .3s ease}
+.msg.user{align-items:flex-end}.msg.ai,.msg.error{align-items:flex-start}
+.msg-label{font-size:10px;color:#555570;font-family:monospace;text-transform:uppercase;letter-spacing:1px;padding:0 4px}
+.msg-bubble{padding:10px 14px;font-size:14px;line-height:1.6;max-width:90%;word-break:break-word}
+.msg.user .msg-bubble{border-radius:14px 14px 4px 14px;background:rgba(0,229,255,.08);border:1px solid rgba(0,229,255,.25);color:#c0f0ff}
+.msg.ai .msg-bubble{border-radius:4px 14px 14px 14px;background:#12121a;border:1px solid #1e1e2e;color:#e8e8f0}
+.msg.error .msg-bubble{border-radius:4px 14px 14px 14px;background:rgba(255,69,102,.08);border:1px solid rgba(255,69,102,.3);color:#ff7090}
+
+#interim{font-size:13px;color:rgba(0,229,255,.5);font-style:italic;padding:8px 14px;border:1px dashed rgba(0,229,255,.2);border-radius:10px;background:rgba(0,229,255,.04);display:none}
+
+.thinking{display:flex;gap:5px;align-items:center;padding:12px 16px;background:#12121a;border:1px solid #1e1e2e;border-radius:4px 14px 14px 14px;width:fit-content;display:none}
+.thinking span{width:6px;height:6px;border-radius:50%;background:#00e5ff}
+.thinking span:nth-child(1){animation:bounce 1.2s 0ms infinite}
+.thinking span:nth-child(2){animation:bounce 1.2s 200ms infinite}
+.thinking span:nth-child(3){animation:bounce 1.2s 400ms infinite}
+
+#viz{display:flex;align-items:center;justify-content:center;gap:3px;height:44px;opacity:0;transition:opacity .4s}
+#viz.on{opacity:1}
+.bar{width:3px;border-radius:2px;background:#00e5ff;transition:height .1s}
+
+.bottom{display:flex;flex-direction:column;align-items:center;gap:12px;padding-bottom:8px}
+#btn{width:80px;height:80px;border-radius:50%;border:2px solid #1e1e2e;background:#12121a;cursor:pointer;font-size:30px;outline:none;transition:all .3s}
+.controls{display:flex;gap:10px;align-items:center}
+#hint{font-size:11px;font-family:monospace;color:#555570}
+.small-btn{background:none;border:1px solid #1e1e2e;border-radius:8px;color:#555570;font-size:11px;padding:4px 10px;cursor:pointer;font-family:monospace}
+
+/* Modal */
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);z-index:100;display:none;align-items:flex-end;padding:16px}
+#modal.open{display:flex}
+.modal-box{background:#12121a;border:1px solid #1e1e2e;border-radius:20px;padding:24px;width:100%;display:flex;flex-direction:column;gap:14px;animation:slideUp .3s ease}
+.modal-title{font-size:20px;font-weight:800;color:#00e5ff}
+.modal-desc{font-size:13px;color:#888;line-height:1.6}
+.modal-desc a{color:#00e5ff}
+#keyInput{background:#0a0a0f;border:1px solid #333;border-radius:10px;padding:14px;color:#e8e8f0;font-family:monospace;font-size:13px;outline:none;width:100%}
+#keyError{color:#ff4566;font-size:12px;font-family:monospace;display:none}
+.save-btn{background:#00e5ff;color:#000;font-weight:700;font-size:15px;border:none;border-radius:10px;padding:14px;cursor:pointer}
+.cancel-btn{background:none;border:none;color:#555570;font-size:13px;cursor:pointer}
+
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes bounce{0%,100%{transform:translateY(0);opacity:.3}50%{transform:translateY(-6px);opacity:1}}
+@keyframes slideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideUp{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">AI<span>VOZ</span></div>
+    <div id="pill"><div class="dot"></div><span id="pillText">inativo</span></div>
+  </header>
+
+  <div id="chat">
+    <div class="empty" id="empty">
+      <div class="empty-icon">🎙️</div>
+      <p>Toque ▶ e fale<br>em português</p>
+    </div>
+    <div id="interim"></div>
+    <div class="thinking" id="thinking"><span></span><span></span><span></span></div>
+  </div>
+
+  <div id="viz"></div>
+
+  <div class="bottom">
+    <button id="btn" onclick="toggle()">▶</button>
+    <div class="controls">
+      <span id="hint">toque para iniciar</span>
+      <button class="small-btn" onclick="clearChat()">limpar</button>
+      <button class="small-btn" onclick="openModal()">🔑</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modal">
+  <div class="modal-box">
+    <div class="modal-title">🔑 Chave API Anthropic</div>
+    <p class="modal-desc">Crie em <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> → API Keys</p>
+    <input type="password" id="keyInput" placeholder="sk-ant-..." />
+    <div id="keyError">Deve começar com sk-</div>
+    <button class="save-btn" onclick="saveKey()">Salvar</button>
+    <button class="cancel-btn" onclick="closeModal()">Cancelar</button>
+  </div>
+</div>
+
+<script>
+const SYSTEM = `Você é um assistente de voz inteligente. Responda em português brasileiro de forma clara, direta e concisa. Se a pergunta for simples, responda em 1-2 frases. Evite listas longas.`;
+
+const STATUS = {
+  idle:      { text: 'inativo',  color: '#555570', hint: 'toque para iniciar', icon: '▶' },
+  listening: { text: 'ouvindo',  color: '#00e5a0', hint: 'fale agora...',      icon: '🎙' },
+  thinking:  { text: 'pensando', color: '#00e5ff', hint: 'processando...',     icon: '⋯' },
+  speaking:  { text: 'falando',  color: '#a78bfa', hint: 'respondendo...',     icon: '🔊' },
+};
+
+let apiKey = '';
+let isActive = false;
+let isProcessing = false;
+let history = [];
+let recognition = null;
+let animFrame = null;
+let micStream = null;
+
+// Load key
+try { apiKey = localStorage.getItem('aivoz_key') || ''; } catch(_){}
+
+// Build visualizer bars
+const viz = document.getElementById('viz');
+for(let i=0;i<20;i++){
+  const b = document.createElement('div');
+  b.className = 'bar';
+  b.style.height = '3px';
+  viz.appendChild(b);
+}
+
+// Init voices
+if(window.speechSynthesis) {
+  window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+}
+
+function setStatus(s) {
+  const d = STATUS[s] || STATUS.idle;
+  const pill = document.getElementById('pill');
+  pill.style.color = d.color;
+  pill.style.borderColor = d.color + '44';
+  document.getElementById('pillText').textContent = d.text;
+  document.getElementById('hint').textContent = d.hint;
+  document.getElementById('btn').textContent = d.icon;
+  document.getElementById('btn').style.borderColor = isActive ? d.color : '#1e1e2e';
+  document.getElementById('btn').style.boxShadow = isActive ? `0 0 24px ${d.color}55` : 'none';
+  // thinking dots
+  document.getElementById('thinking').style.display = s === 'thinking' ? 'flex' : 'none';
+}
+
+function addMsg(role, text) {
+  document.getElementById('empty')?.remove();
+  const interim = document.getElementById('interim');
+  const thinking = document.getElementById('thinking');
+  const chat = document.getElementById('chat');
+
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  const label = document.createElement('div');
+  label.className = 'msg-label';
+  label.textContent = role === 'user' ? 'você' : role === 'error' ? 'erro' : 'ia';
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.textContent = text;
+  div.appendChild(label);
+  div.appendChild(bubble);
+
+  // Insert before interim and thinking
+  chat.insertBefore(div, interim);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function setInterim(text) {
+  const el = document.getElementById('interim');
+  if(text) { el.textContent = `"${text}..."`; el.style.display = 'block'; }
+  else { el.textContent = ''; el.style.display = 'none'; }
+  document.getElementById('chat').scrollTop = 9999;
+}
+
+function clearChat() {
+  history = [];
+  const chat = document.getElementById('chat');
+  chat.innerHTML = `
+    <div class="empty" id="empty">
+      <div class="empty-icon">🎙️</div>
+      <p>Toque ▶ e fale<br>em português</p>
+    </div>
+    <div id="interim"></div>
+    <div class="thinking" id="thinking"><span></span><span></span><span></span></div>`;
+}
+
+// Speak
+function speak(text, onDone) {
+  const synth = window.speechSynthesis;
+  if(!synth){ onDone(); return; }
+  synth.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'pt-BR'; u.rate = 1.05;
+  const voices = synth.getVoices();
+  const pt = voices.find(v => v.lang.startsWith('pt') && v.localService) || voices.find(v => v.lang.startsWith('pt'));
+  if(pt) u.voice = pt;
+  u.onend = onDone; u.onerror = onDone;
+  synth.speak(u);
+}
+
+// Claude API
+async function callClaude(text) {
+  if(!apiKey || isProcessing) return;
+  isProcessing = true;
+  setStatus('thinking');
+  setInterim('');
+  addMsg('user', text);
+  history.push({ role: 'user', content: text });
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: SYSTEM,
+        messages: history,
+      })
+    });
+
+    const data = await res.json();
+
+    if(data.error) {
+      addMsg('error', '⚠ ' + (data.error.message || 'Erro na API'));
+      history.pop();
+      isProcessing = false;
+      if(isActive){ setStatus('listening'); startListening(); }
+      return;
+    }
+
+    const reply = data.content?.[0]?.text || 'Pode repetir?';
+    history.push({ role: 'assistant', content: reply });
+    addMsg('ai', reply);
+    setStatus('speaking');
+
+    speak(reply, () => {
+      isProcessing = false;
+      if(isActive){ setStatus('listening'); startListening(); }
+    });
+
+  } catch(e) {
+    addMsg('error', '⚠ Erro de conexão. Verifique a internet.');
+    history.pop();
+    isProcessing = false;
+    if(isActive){ setStatus('listening'); startListening(); }
+  }
+}
+
+// Speech recognition
+function startListening() {
+  if(!isActive || isProcessing) return;
+  setInterim('');
+  try{ recognition?.stop(); }catch(_){}
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ addMsg('error', '⚠ Use o Chrome para reconhecimento de voz.'); stopAll(); return; }
+
+  const r = new SR();
+  r.lang = 'pt-BR';
+  r.interimResults = true;
+  r.continuous = false;
+  r.maxAlternatives = 1;
+
+  r.onresult = (e) => {
+    let fin = '', int = '';
+    for(let i = e.resultIndex; i < e.results.length; i++){
+      if(e.results[i].isFinal) fin += e.results[i][0].transcript;
+      else int += e.results[i][0].transcript;
+    }
+    if(int) setInterim(int);
+    if(fin.trim().length > 1 && !isProcessing) callClaude(fin.trim());
+  };
+
+  r.onerror = (e) => {
+    if(!isActive) return;
+    if(e.error === 'not-allowed'){ addMsg('error','⚠ Microfone bloqueado. Permita nas configurações do Chrome.'); stopAll(); return; }
+    setTimeout(startListening, 600);
+  };
+
+  r.onend = () => {
+    if(!isActive || isProcessing) return;
+    setTimeout(startListening, 300);
+  };
+
+  recognition = r;
+  try{ r.start(); }catch(_){ setTimeout(startListening, 600); }
+}
+
+// Visualizer
+async function startVisualizer() {
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 64;
+    ctx.createMediaStreamSource(micStream).connect(analyser);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    const bars = viz.querySelectorAll('.bar');
+
+    function tick(){
+      analyser.getByteFrequencyData(data);
+      bars.forEach((b,i) => {
+        const h = Math.max(3, (data[Math.floor(i * data.length / bars.length)] / 255) * 38);
+        b.style.height = h + 'px';
+        b.style.opacity = 0.4 + (h/38)*0.6;
+      });
+      animFrame = requestAnimationFrame(tick);
+    }
+    tick();
+    viz.classList.add('on');
+    return true;
+  } catch {
+    addMsg('error','⚠ Microfone bloqueado. Permita o acesso e tente novamente.');
+    return false;
+  }
+}
+
+function stopAll() {
+  isActive = false; isProcessing = false;
+  window.speechSynthesis?.cancel();
+  try{ recognition?.stop(); }catch(_){}
+  recognition = null;
+  cancelAnimationFrame(animFrame);
+  micStream?.getTracks().forEach(t => t.stop());
+  viz.classList.remove('on');
+  viz.querySelectorAll('.bar').forEach(b => b.style.height = '3px');
+  setInterim('');
+  document.getElementById('btn').style.borderColor = '#1e1e2e';
+  document.getElementById('btn').style.boxShadow = 'none';
+  setStatus('idle');
+}
+
+async function toggle() {
+  if(!apiKey){ openModal(); return; }
+  if(isActive){
+    stopAll();
+  } else {
+    isActive = true; isProcessing = false;
+    setStatus('listening');
+    const ok = await startVisualizer();
+    if(ok) startListening();
+    else stopAll();
+  }
+}
+
+// Modal
+function openModal(){ document.getElementById('modal').classList.add('open'); }
+function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+function saveKey(){
+  const v = document.getElementById('keyInput').value.trim();
+  const err = document.getElementById('keyError');
+  if(!v.startsWith('sk-')){ err.style.display='block'; return; }
+  err.style.display='none';
+  try{ localStorage.setItem('aivoz_key', v); }catch(_){}
+  apiKey = v;
+  closeModal();
+}
+
+// Close modal on backdrop click
+document.getElementById('modal').addEventListener('click', function(e){
+  if(e.target === this) closeModal();
+});
+
+// Enter key on input
+document.getElementById('keyInput').addEventListener('keydown', e => {
+  if(e.key === 'Enter') saveKey();
+});
+
+// Show modal on first load if no key
+if(!apiKey) openModal();
+</script>
+</body>
+  </html>
