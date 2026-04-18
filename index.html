@@ -335,22 +335,20 @@ function startListening() {
       else int += e.results[i][0].transcript;
     }
 
-    // Mostra transcrição parcial
-    if(int) setInterim(int);
+    const heard = fin || int;
+    if(heard) setInterim('🏙 ' + heard);
 
     if(fin.trim() && !isProcessing) {
-      // Verifica se termina com "Jarvis"
       if(detectJarvis(fin)) {
         const command = extractCommand(fin);
+        setInterim('');
         if(command.length > 0) {
           callClaude(command);
         } else {
-          // Só falou "Jarvis" — responde com confirmação
-          callClaude('(o usuário apenas chamou seu nome)');
+          callClaude('(chamou jarvis)');
         }
       } else {
-        // Não terminou com Jarvis — ignora silenciosamente
-        setInterim('');
+        setTimeout(() => { if(!isProcessing) setInterim(''); }, 2000);
       }
     }
   };
