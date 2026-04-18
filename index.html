@@ -111,7 +111,7 @@ header{display:flex;justify-content:space-between;align-items:center}
 <script>
 const SYSTEM = `Você é Jarvis, assistente de IA sofisticado inspirado no assistente do Tony Stark. Responda em português brasileiro. Seja direto e inteligente. Máximo 2-3 frases, a menos que seja algo complexo.`;
 
-let key = '', active = false, processing = false, history = [], rec = null, micStream = null;
+let key = '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', active = false, processing = false, history = [], rec = null, micStream = null;
 
 try { key = localStorage.getItem('jv_key') || ''; } catch(_){}
 if(window.speechSynthesis) window.speechSynthesis.onvoiceschanged = ()=>window.speechSynthesis.getVoices();
